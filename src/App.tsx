@@ -23,6 +23,7 @@ function App() {
   const [calculationResults, setCalculationResults] = useState<any>(null);
   const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [isGovernmentUser, setIsGovernmentUser] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isPasswordReset, setIsPasswordReset] = useState(false);
@@ -45,14 +46,33 @@ function App() {
     }
   }, []);
 
+  const checkGovernmentUser = async (userId: string) => {
+    const { data } = await supabase
+      .from('government_users')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    setIsGovernmentUser(!!data);
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        checkGovernmentUser(session.user.id);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       (async () => {
         setUser(session?.user ?? null);
+
+        if (session?.user) {
+          await checkGovernmentUser(session.user.id);
+        } else {
+          setIsGovernmentUser(false);
+        }
 
         if (event === 'PASSWORD_RECOVERY') {
           setIsPasswordReset(true);
@@ -77,7 +97,10 @@ function App() {
       setCurrentView('home');
       setIsAuthModalOpen(true);
     }
-  }, [currentView, user]);
+    if (currentView === 'government' && !isGovernmentUser) {
+      setCurrentView('home');
+    }
+  }, [currentView, user, isGovernmentUser]);
 
   const handleAssessmentComplete = async (
     data: ProjectInput & {
@@ -254,15 +277,17 @@ function App() {
 
               {user && (
                 <>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setCurrentView('government')}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium shadow-sm hover:bg-green-700 transition-colors"
-                  >
-                    <Building2 className="w-4 h-4" />
-                    Government
-                  </motion.button>
+                  {isGovernmentUser && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setCurrentView('government')}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium shadow-sm hover:bg-green-700 transition-colors"
+                    >
+                      <Building2 className="w-4 h-4" />
+                      Government
+                    </motion.button>
+                  )}
 
                   <motion.button
                     whileHover={{ scale: 1.02 }}
@@ -754,7 +779,7 @@ function App() {
           </div>
         )}
 
-        {currentView === 'government' && (
+        {currentView === 'government' && isGovernmentUser && (
           <div className="pt-20">
             <GovernmentDashboard />
           </div>

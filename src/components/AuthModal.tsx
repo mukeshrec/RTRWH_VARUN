@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, Lock, User, Phone, ArrowLeft, CheckCircle } from 'lucide-react';
+import { X, Mail, Lock, User, Phone, ArrowLeft, CheckCircle, Building2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface AuthModalProps {
@@ -17,6 +17,10 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [isGovernmentSignup, setIsGovernmentSignup] = useState(false);
+  const [department, setDepartment] = useState('');
+  const [jurisdiction, setJurisdiction] = useState('');
+  const [governmentRole, setGovernmentRole] = useState('officer');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -39,7 +43,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
         onAuthSuccess();
         handleClose();
       } else if (authView === 'signup') {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -51,6 +55,19 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
         });
 
         if (signUpError) throw signUpError;
+
+        if (isGovernmentSignup && signUpData.user) {
+          const { error: govError } = await supabase.from('government_users').insert({
+            user_id: signUpData.user.id,
+            department,
+            jurisdiction,
+            role: governmentRole,
+          });
+
+          if (govError) {
+            console.error('Error creating government user:', govError);
+          }
+        }
 
         setSuccessMessage('Account created successfully! You can now sign in.');
         setTimeout(() => {
@@ -81,6 +98,10 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
       setPassword('');
       setName('');
       setPhone('');
+      setIsGovernmentSignup(false);
+      setDepartment('');
+      setJurisdiction('');
+      setGovernmentRole('officer');
       setError('');
       setSuccessMessage('');
     }, 300);
@@ -202,6 +223,74 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }: AuthModalP
                       />
                     </div>
                   </div>
+
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isGovernmentSignup}
+                        onChange={(e) => setIsGovernmentSignup(e.target.checked)}
+                        className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                      />
+                      <div className="ml-3 flex items-center gap-2">
+                        <Building2 className="w-5 h-5 text-green-600" />
+                        <span className="text-sm font-medium text-gray-900">
+                          Register as Government Official
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+
+                  {isGovernmentSignup && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Department
+                        </label>
+                        <div className="relative">
+                          <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                          <input
+                            type="text"
+                            value={department}
+                            onChange={(e) => setDepartment(e.target.value)}
+                            className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all"
+                            placeholder="e.g., Water Resources Department"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Jurisdiction
+                        </label>
+                        <input
+                          type="text"
+                          value={jurisdiction}
+                          onChange={(e) => setJurisdiction(e.target.value)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all"
+                          placeholder="e.g., Mumbai Municipal Corporation"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Role
+                        </label>
+                        <select
+                          value={governmentRole}
+                          onChange={(e) => setGovernmentRole(e.target.value)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all"
+                        >
+                          <option value="officer">Officer</option>
+                          <option value="engineer">Engineer</option>
+                          <option value="inspector">Inspector</option>
+                          <option value="administrator">Administrator</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
 
