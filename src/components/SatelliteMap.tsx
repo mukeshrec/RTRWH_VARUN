@@ -115,6 +115,8 @@ export default function SatelliteMap({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [siteAnalysis, setSiteAnalysis] = useState<SiteAnalysis | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualArea, setManualArea] = useState('');
 
   const handlePolygonCreated = (latlngs: L.LatLng[]) => {
     const coordinates = latlngs.map((ll) => [ll.lng, ll.lat]);
@@ -132,7 +134,17 @@ export default function SatelliteMap({
     setRoofPolygon([]);
     setCalculatedArea(0);
     setSiteAnalysis(null);
+    setManualArea('');
+    setShowManualEntry(false);
     onRoofAreaCalculated(0, []);
+  };
+
+  const handleManualAreaSubmit = () => {
+    const area = parseFloat(manualArea);
+    if (!isNaN(area) && area > 0) {
+      setCalculatedArea(area);
+      onRoofAreaCalculated(area, []);
+    }
   };
 
   const performSiteAnalysis = async () => {
@@ -333,16 +345,63 @@ export default function SatelliteMap({
 
         <div className="space-y-3">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-gray-700 mb-2">
-              Use the polygon tool (square icon) on the right to trace your roof outline.
-            </p>
+            {!showManualEntry ? (
+              <>
+                <p className="text-sm text-gray-700 mb-2">
+                  Use the polygon tool (square icon) on the right to trace your roof outline.
+                </p>
+                <button
+                  onClick={() => setShowManualEntry(true)}
+                  className="text-xs text-blue-600 hover:text-blue-700 underline mt-1"
+                >
+                  Or enter roof area manually
+                </button>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-700 mb-2">
+                  Enter your roof area manually:
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={manualArea}
+                    onChange={(e) => setManualArea(e.target.value)}
+                    placeholder="e.g., 150"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <span className="flex items-center text-sm text-gray-600">m²</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleManualAreaSubmit}
+                    disabled={!manualArea || parseFloat(manualArea) <= 0}
+                    className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowManualEntry(false);
+                      setManualArea('');
+                    }}
+                    className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
             {calculatedArea > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-3 pt-3 border-t border-blue-200"
               >
-                <p className="text-xs text-gray-600 mb-1">Measured Roof Area:</p>
+                <p className="text-xs text-gray-600 mb-1">
+                  {roofPolygon.length > 0 ? 'Measured' : 'Entered'} Roof Area:
+                </p>
                 <p className="text-2xl font-bold text-blue-600">
                   {calculatedArea.toFixed(2)} m²
                 </p>
