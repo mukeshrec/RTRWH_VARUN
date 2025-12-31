@@ -64,7 +64,6 @@ function DrawControl({ onPolygonCreated, onReset }: DrawControlProps) {
       edit: {
         featureGroup: drawnItemsRef.current,
         remove: true,
-        edit: true,
       },
     });
 
