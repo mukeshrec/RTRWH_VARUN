@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
-import { X, Send, Minimize2, MapPin, Loader } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useRef, useEffect } from "react";
+import { X, Send, Minimize2, MapPin, Loader } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Message {
   id: string;
   text: string;
-  sender: 'user' | 'bot';
+  sender: "user" | "bot";
   timestamp: Date;
 }
 
@@ -22,24 +22,25 @@ export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: '1',
-      text: 'Hello! I\'m your Varun assistant. Ask me anything about rainwater harvesting, our assessment tool, or RTRWH systems!',
-      sender: 'bot',
+      id: "1",
+      text: "Hello! I'm your Varun assistant. Ask me anything about rainwater harvesting, our assessment tool, or RTRWH systems!",
+      sender: "bot",
       timestamp: new Date(),
     },
   ]);
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [cooldownActive, setCooldownActive] = useState(false);
-  const [locationContext, setLocationContext] = useState<LocationContext | null>(null);
+  const [locationContext, setLocationContext] =
+    useState<LocationContext | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [showLocationInput, setShowLocationInput] = useState(false);
-  const [manualLocation, setManualLocation] = useState('');
+  const [manualLocation, setManualLocation] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageTimeRef = useRef<number>(0);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -67,40 +68,48 @@ export default function Chatbot() {
     );
   };
 
-  const fetchLocationData = async (latitude: number, longitude: number, locationName?: string) => {
+  const fetchLocationData = async (
+    latitude: number,
+    longitude: number,
+    locationName?: string
+  ) => {
     try {
       const [rainfallResponse, reverseGeocodeResponse] = await Promise.all([
         fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rainfall`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({ latitude, longitude }),
         }),
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reverse-geocode`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({ latitude, longitude }),
-        }),
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reverse-geocode`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({ latitude, longitude }),
+          }
+        ),
       ]);
 
       const rainfallData = await rainfallResponse.json();
       const locationData = await reverseGeocodeResponse.json();
 
-      const state = locationData.state || '';
-      const displayLocation = locationName || locationData.displayLocation || locationData.formatted;
+      const state = locationData.state || "";
+      const displayLocation =
+        locationName || locationData.displayLocation || locationData.formatted;
 
       const aquiferResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aquifer`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({ state }),
         }
@@ -123,18 +132,23 @@ export default function Chatbot() {
 
       const locationMessage: Message = {
         id: Date.now().toString(),
-        text: `Location detected: ${displayLocation}\nAnnual Rainfall: ${rainfallData.annualRainfall} mm\nAquifer Type: ${aquiferData.aquiferType?.replace(/_/g, ' ')}\nRecharge Potential: ${aquiferData.rechargePotential}`,
-        sender: 'bot',
+        text: `Location detected: ${displayLocation}\nAnnual Rainfall: ${
+          rainfallData.annualRainfall
+        } mm\nAquifer Type: ${aquiferData.aquiferType?.replace(
+          /_/g,
+          " "
+        )}\nRecharge Potential: ${aquiferData.rechargePotential}`,
+        sender: "bot",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, locationMessage]);
     } catch (error) {
-      console.error('Location data fetch error:', error);
+      console.error("Location data fetch error:", error);
       setIsLoadingLocation(false);
       const errorMessage: Message = {
         id: Date.now().toString(),
-        text: 'Failed to fetch location data. You can still ask questions without location context.',
-        sender: 'bot',
+        text: "Failed to fetch location data. You can still ask questions without location context.",
+        sender: "bot",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -150,10 +164,10 @@ export default function Chatbot() {
       const geocodeResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/geocode`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({ location: manualLocation }),
         }
@@ -165,15 +179,19 @@ export default function Chatbot() {
         throw new Error(geocodeData.error);
       }
 
-      await fetchLocationData(geocodeData.latitude, geocodeData.longitude, manualLocation);
-      setManualLocation('');
+      await fetchLocationData(
+        geocodeData.latitude,
+        geocodeData.longitude,
+        manualLocation
+      );
+      setManualLocation("");
     } catch (error) {
-      console.error('Manual location error:', error);
+      console.error("Manual location error:", error);
       setIsLoadingLocation(false);
       const errorMessage: Message = {
         id: Date.now().toString(),
-        text: 'Could not find that location. Please try another location name.',
-        sender: 'bot',
+        text: "Could not find that location. Please try another location name.",
+        sender: "bot",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -190,8 +208,10 @@ export default function Chatbot() {
       const remainingTime = Math.ceil((2000 - timeSinceLastMessage) / 1000);
       const cooldownMessage: Message = {
         id: Date.now().toString(),
-        text: `Please wait ${remainingTime} second${remainingTime > 1 ? 's' : ''} before sending another message.`,
-        sender: 'bot',
+        text: `Please wait ${remainingTime} second${
+          remainingTime > 1 ? "s" : ""
+        } before sending another message.`,
+        sender: "bot",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, cooldownMessage]);
@@ -204,12 +224,12 @@ export default function Chatbot() {
     const userMessage: Message = {
       id: Date.now().toString(),
       text: messageToSend,
-      sender: 'user',
+      sender: "user",
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setInputValue('');
+    setInputValue("");
     setIsLoading(true);
     setCooldownActive(true);
 
@@ -218,36 +238,112 @@ export default function Chatbot() {
     }, 2000);
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chatbot`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            message: messageToSend,
-            locationContext: locationContext || undefined,
-          }),
+      // Build system prompt with location context
+      let systemPrompt = `You are an AI assistant for Varun, a professional rainwater harvesting assessment tool. Your role is to help users understand:
+
+1. Rainwater harvesting concepts and benefits
+2. Rooftop rainwater harvesting (RTRWH) systems
+3. How to use the Varun assessment tool
+4. Components of RTRWH systems (catchment, collection, filters, storage, recharge)
+5. Cost analysis and economic benefits
+6. CGWB (Central Ground Water Board) guidelines and standards
+7. Technical specifications like tank sizing, filter design, and recharge structures
+
+KEY FEATURES OF VARUN:
+- Complete calculations for water availability and requirements
+- Tank sizing and design
+- Collection system specifications (gutters, downpipes)
+- Filter specifications
+- Recharge structure design
+- Cost breakdown and economic analysis
+- B/C ratio and payback period calculations
+- Based on CGWB Manual on Artificial Recharge (2007)
+
+IMPORTANT RULES:
+- ONLY answer questions related to rainwater harvesting, the Varun tool, water conservation, or related topics
+- If asked about unrelated topics, politely redirect to rainwater harvesting topics
+- Be helpful, professional, and concise
+- Provide accurate technical information when needed
+- Encourage users to try the assessment tool
+
+Keep responses clear and helpful, typically 2-4 sentences unless more detail is requested.`;
+
+      if (locationContext && Object.keys(locationContext).length > 0) {
+        systemPrompt += `\n\nLOCATION-SPECIFIC CONTEXT (use this data to provide scientifically accurate, location-specific recommendations):\n`;
+        if (locationContext.location) {
+          systemPrompt += `- Location: ${locationContext.location}\n`;
         }
-      );
+        if (locationContext.latitude && locationContext.longitude) {
+          systemPrompt += `- Coordinates: ${locationContext.latitude.toFixed(
+            4
+          )}°N, ${locationContext.longitude.toFixed(4)}°E\n`;
+        }
+        if (locationContext.annualRainfall) {
+          systemPrompt += `- Annual Rainfall: ${locationContext.annualRainfall} mm\n`;
+        }
+        if (locationContext.aquiferType) {
+          const aquiferTypeReadable = locationContext.aquiferType.replace(
+            /_/g,
+            " "
+          );
+          systemPrompt += `- Aquifer Type: ${aquiferTypeReadable}\n`;
+        }
+        if (locationContext.rechargePotential) {
+          systemPrompt += `- Groundwater Recharge Potential: ${locationContext.rechargePotential}\n`;
+        }
+        systemPrompt += `\nIMPORTANT: Based on the above data, provide tailored recommendations for:\n1. Whether to prioritize STORAGE (tanks) or RECHARGE (percolation pits, recharge wells)\n2. Suitable RWH system components based on aquifer type and rainfall\n3. Expected water availability and storage capacity requirements\n4. Any location-specific considerations or warnings\n`;
+      }
+
+      const geminiApiKey = import.meta.env.VITE_GEMINI_API;
+      if (!geminiApiKey) {
+        console.error("Gemini API key not configured in .env");
+        throw new Error("Gemini API key not configured");
+      }
+
+      console.log("Sending message to backend chatbot API...", {
+        messageToSend,
+        hasLocation: !!locationContext,
+      });
+
+      const response = await fetch("http://localhost:3000/api/chatbot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: messageToSend,
+          locationContext: locationContext || undefined,
+        }),
+      });
+
+      console.log("Backend API response status:", response.status);
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("Backend API error response:", errorData);
+        throw new Error(`Backend API error: ${response.status} - ${errorData}`);
+      }
 
       const data = await response.json();
+      console.log("Backend API response:", data);
+
+      const botResponse =
+        data.response || "Sorry, I encountered an error. Please try again.";
 
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: data.response || 'Sorry, I encountered an error. Please try again.',
-        sender: 'bot',
+        text: botResponse,
+        sender: "bot",
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
+      console.error("Chat error details:", error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: 'Sorry, I\'m having trouble connecting. Please try again later.',
-        sender: 'bot',
+        text: "Sorry, I'm having trouble connecting. Please try again later.",
+        sender: "bot",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -257,7 +353,7 @@ export default function Chatbot() {
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
@@ -284,7 +380,9 @@ export default function Chatbot() {
                   />
                   <div>
                     <h3 className="font-bold text-lg">Varun Assistant</h3>
-                    <p className="text-xs text-blue-100">Powered by Gemini AI</p>
+                    <p className="text-xs text-blue-100">
+                      Powered by Gemini AI
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -312,10 +410,13 @@ export default function Chatbot() {
                 <div className="text-xs bg-white/20 rounded-lg px-3 py-2 mt-2">
                   <div className="flex items-center gap-1">
                     <MapPin className="w-3 h-3" />
-                    <span className="font-medium">{locationContext.location}</span>
+                    <span className="font-medium">
+                      {locationContext.location}
+                    </span>
                   </div>
                   <div className="mt-1 text-blue-50">
-                    {locationContext.annualRainfall}mm rainfall • {locationContext.aquiferType?.replace(/_/g, ' ')}
+                    {locationContext.annualRainfall}mm rainfall •{" "}
+                    {locationContext.aquiferType?.replace(/_/g, " ")}
                   </div>
                 </div>
               )}
@@ -326,25 +427,29 @@ export default function Chatbot() {
                 <div
                   key={message.id}
                   className={`flex ${
-                    message.sender === 'user' ? 'justify-end' : 'justify-start'
+                    message.sender === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
                   <div
                     className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                      message.sender === 'user'
-                        ? 'bg-gradient-to-r from-blue-600 to-teal-500 text-white'
-                        : 'bg-white text-gray-800 shadow-sm border border-gray-200'
+                      message.sender === "user"
+                        ? "bg-gradient-to-r from-blue-600 to-teal-500 text-white"
+                        : "bg-white text-gray-800 shadow-sm border border-gray-200"
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                    <p className="text-sm whitespace-pre-wrap">
+                      {message.text}
+                    </p>
                     <p
                       className={`text-xs mt-1 ${
-                        message.sender === 'user' ? 'text-blue-100' : 'text-gray-500'
+                        message.sender === "user"
+                          ? "text-blue-100"
+                          : "text-gray-500"
                       }`}
                     >
                       {message.timestamp.toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
+                        hour: "2-digit",
+                        minute: "2-digit",
                       })}
                     </p>
                   </div>
@@ -357,11 +462,11 @@ export default function Chatbot() {
                       <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
                       <div
                         className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                        style={{ animationDelay: '0.1s' }}
+                        style={{ animationDelay: "0.1s" }}
                       />
                       <div
                         className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                        style={{ animationDelay: '0.2s' }}
+                        style={{ animationDelay: "0.2s" }}
                       />
                     </div>
                   </div>
@@ -381,7 +486,7 @@ export default function Chatbot() {
                     value={manualLocation}
                     onChange={(e) => setManualLocation(e.target.value)}
                     onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === "Enter") {
                         handleManualLocation();
                       }
                     }}
@@ -394,7 +499,7 @@ export default function Chatbot() {
                     disabled={isLoadingLocation || !manualLocation.trim()}
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isLoadingLocation ? 'Loading...' : 'Set'}
+                    {isLoadingLocation ? "Loading..." : "Set"}
                   </button>
                   <button
                     onClick={() => setShowLocationInput(false)}
@@ -432,7 +537,7 @@ export default function Chatbot() {
 
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 rounded-full shadow-2xl hover:shadow-3xl transition-all z-50 group"
+        className="fixed bottom-28 right-6 rounded-full shadow-2xl hover:shadow-3xl transition-all z-50 group"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
       >

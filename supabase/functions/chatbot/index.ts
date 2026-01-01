@@ -1,9 +1,10 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  "Access-Control-Allow-Headers":
+    "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
 const SYSTEM_PROMPT = `You are an AI assistant for Varun, a professional rainwater harvesting assessment tool. Your role is to help users understand:
@@ -49,7 +50,8 @@ interface ChatRequest {
   locationContext?: LocationContext;
 }
 
-Deno.serve(async (req: Request) => {
+serve(async (req: Request) => {
+  // @ts-ignore - Deno is a global in Supabase edge functions
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 200,
@@ -60,31 +62,33 @@ Deno.serve(async (req: Request) => {
   try {
     const { message, locationContext }: ChatRequest = await req.json();
 
-    if (!message || typeof message !== 'string') {
+    if (!message || typeof message !== "string") {
       return new Response(
-        JSON.stringify({ response: 'Please provide a valid message.' }),
+        JSON.stringify({ response: "Please provide a valid message." }),
         {
           status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
 
-    const GEMINI_API_KEY = Deno.env.get('RTRWH');
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    // @ts-ignore - Deno is a global in Supabase edge functions
 
     if (!GEMINI_API_KEY) {
       return new Response(
         JSON.stringify({
-          response: 'Configuration Error: The RTRWH secret is not set. Please check your Supabase dashboard settings.'
+          response:
+            "Configuration Error: Gemini API key is not set. Please check your environment variables.",
         }),
         {
           status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
 
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await new Promise((resolve) => setTimeout(resolve, 800));
 
     let promptWithContext = SYSTEM_PROMPT;
 
@@ -95,13 +99,18 @@ Deno.serve(async (req: Request) => {
         promptWithContext += `- Location: ${locationContext.location}\n`;
       }
       if (locationContext.latitude && locationContext.longitude) {
-        promptWithContext += `- Coordinates: ${locationContext.latitude.toFixed(4)}°N, ${locationContext.longitude.toFixed(4)}°E\n`;
+        promptWithContext += `- Coordinates: ${locationContext.latitude.toFixed(
+          4
+        )}°N, ${locationContext.longitude.toFixed(4)}°E\n`;
       }
       if (locationContext.annualRainfall) {
         promptWithContext += `- Annual Rainfall: ${locationContext.annualRainfall} mm\n`;
       }
       if (locationContext.aquiferType) {
-        const aquiferTypeReadable = locationContext.aquiferType.replace(/_/g, ' ');
+        const aquiferTypeReadable = locationContext.aquiferType.replace(
+          /_/g,
+          " "
+        );
         promptWithContext += `- Aquifer Type: ${aquiferTypeReadable}\n`;
       }
       if (locationContext.rechargePotential) {
@@ -118,17 +127,17 @@ Deno.serve(async (req: Request) => {
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
     const response = await fetch(geminiUrl, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         contents: [
           {
             parts: [
-              { text: promptWithContext + "\n\nUser question: " + message }
-            ]
-          }
+              { text: promptWithContext + "\n\nUser question: " + message },
+            ],
+          },
         ],
         generationConfig: {
           temperature: 0.7,
@@ -141,54 +150,56 @@ Deno.serve(async (req: Request) => {
       const errorText = await response.text();
       const errorJson = JSON.parse(errorText);
 
-      console.error('=== GEMINI API ERROR ===');
-      console.error('Status:', response.status, response.statusText);
-      console.error('Error Details:', JSON.stringify(errorJson, null, 2));
-      console.error('User Message:', message);
-      console.error('Timestamp:', new Date().toISOString());
-      console.error('========================');
+      console.error("=== GEMINI API ERROR ===");
+      console.error("Status:", response.status, response.statusText);
+      console.error("Error Details:", JSON.stringify(errorJson, null, 2));
+      console.error("User Message:", message);
+      console.error("Timestamp:", new Date().toISOString());
+      console.error("========================");
 
-      let userFriendlyMessage = 'I apologize, but I encountered an error connecting to the AI service. Please try again.';
+      let userFriendlyMessage =
+        "I apologize, but I encountered an error connecting to the AI service. Please try again.";
 
       if (response.status === 429) {
-        userFriendlyMessage = 'The AI service is currently busy. Please wait a moment and try again.';
+        userFriendlyMessage =
+          "The AI service is currently busy. Please wait a moment and try again.";
       } else if (response.status === 400) {
-        userFriendlyMessage = 'I had trouble understanding that request. Could you rephrase your question?';
+        userFriendlyMessage =
+          "I had trouble understanding that request. Could you rephrase your question?";
       } else if (response.status === 401 || response.status === 403) {
-        userFriendlyMessage = 'Authentication error. Please contact support.';
+        userFriendlyMessage = "Authentication error. Please contact support.";
       }
 
       return new Response(
         JSON.stringify({
-          response: userFriendlyMessage
+          response: userFriendlyMessage,
         }),
         {
           status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
 
     const data = await response.json();
-    const botResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 
-      'I apologize, but I couldn\'t generate a response. Please try again.';
+    const botResponse =
+      data.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "I apologize, but I couldn't generate a response. Please try again.";
 
-    return new Response(
-      JSON.stringify({ response: botResponse }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return new Response(JSON.stringify({ response: botResponse }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
-    console.error('Chatbot error:', error);
+    console.error("Chatbot error:", error);
     return new Response(
-      JSON.stringify({ 
-        response: 'I apologize, but I encountered an error. Please try again later.'
+      JSON.stringify({
+        response:
+          "I apologize, but I encountered an error. Please try again later.",
       }),
       {
         status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   }
