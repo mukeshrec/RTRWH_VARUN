@@ -15,6 +15,8 @@ import {
   HelpCircle,
   Building2,
   Activity,
+  CalendarCheck,
+  ClipboardCheck
 } from "lucide-react";
 import { VideoPlayer } from "./components/VideoPlayer";
 import { motion } from "framer-motion";
@@ -22,7 +24,8 @@ import AssessmentWizard from "./components/AssessmentWizard";
 import ResultsDashboard from "./components/ResultsDashboard";
 import GovernmentDashboard from "./components/GovernmentDashboard";
 import IotDashboard from "./components/IotDashboard";
-// Removed Chatbot import
+import AssessmentBooking from "./components/AssessmentBooking"; // Import Booking
+import ExpertDashboard from "./components/ExpertDashboard";     // Import Expert
 import AuthModal from "./components/AuthModal";
 import PasswordReset from "./components/PasswordReset";
 import { ProjectInput, performCompleteCalculation } from "./lib/calculations";
@@ -36,13 +39,14 @@ import type { User } from "@supabase/supabase-js";
 
 function App() {
   const [currentView, setCurrentView] = useState<
-    "home" | "wizard" | "results" | "government" | "iot"
+    "home" | "wizard" | "results" | "government" | "iot" | "booking" | "expert"
   >("home");
   const [assessmentData, setAssessmentData] = useState<any>(null);
   const [calculationResults, setCalculationResults] = useState<any>(null);
   const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isGovernmentUser, setIsGovernmentUser] = useState(false);
+  const [isExpertUser, setIsExpertUser] = useState(false); // Expert State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isPasswordReset, setIsPasswordReset] = useState(false);
@@ -65,21 +69,28 @@ function App() {
     }
   }, []);
 
-  const checkGovernmentUser = async (userId: string) => {
-    const { data } = await supabase
+  const checkUserRoles = async (userId: string) => {
+    // 1. Check Government
+    const { data: govData } = await supabase
       .from("government_users")
       .select("id")
       .eq("user_id", userId)
       .maybeSingle();
 
-    setIsGovernmentUser(!!data);
+    setIsGovernmentUser(!!govData);
+
+    // 2. Check Expert (Simple logic: if email contains 'expert', give access)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email?.toLowerCase().includes("expert")) {
+       setIsExpertUser(true);
+    }
   };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        checkGovernmentUser(session.user.id);
+        checkUserRoles(session.user.id);
       }
     });
 
@@ -90,6 +101,7 @@ function App() {
         if (event === "SIGNED_OUT") {
           setUser(null);
           setIsGovernmentUser(false);
+          setIsExpertUser(false);
           setAssessmentData(null);
           setCalculationResults(null);
           setCurrentView("home");
@@ -97,9 +109,10 @@ function App() {
           setUser(session?.user ?? null);
 
           if (session?.user) {
-            await checkGovernmentUser(session.user.id);
+            await checkUserRoles(session.user.id);
           } else {
             setIsGovernmentUser(false);
+            setIsExpertUser(false);
           }
         }
 
@@ -121,15 +134,19 @@ function App() {
     return () => document.removeEventListener("click", handleClickOutside);
   }, [showUserMenu]);
 
+  // Auth Guards for new views
   useEffect(() => {
-    if (currentView === "wizard" && !user) {
+    if ((currentView === "wizard" || currentView === "booking") && !user) {
       setCurrentView("home");
       setIsAuthModalOpen(true);
     }
     if (currentView === "government" && !isGovernmentUser) {
       setCurrentView("home");
     }
-  }, [currentView, user, isGovernmentUser]);
+    if (currentView === "expert" && !isExpertUser) {
+      setCurrentView("home");
+    }
+  }, [currentView, user, isGovernmentUser, isExpertUser]);
 
   const handleAssessmentComplete = async (
     data: ProjectInput & {
@@ -255,6 +272,7 @@ function App() {
       await supabase.auth.signOut();
       setUser(null);
       setIsGovernmentUser(false);
+      setIsExpertUser(false);
       setShowUserMenu(false);
       setCurrentView("home");
       setAssessmentData(null);
@@ -306,7 +324,7 @@ function App() {
             </motion.div>
 
             <div className="flex items-center gap-4">
-              {user && currentView !== "wizard" && currentView !== "home" && (
+              {user && currentView !== "home" && (
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -328,6 +346,19 @@ function App() {
                     >
                       <Building2 className="w-4 h-4" />
                       Government
+                    </motion.button>
+                  )}
+
+                  {/* EXPERT BUTTON */}
+                  {isExpertUser && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setCurrentView("expert")}
+                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg font-medium shadow-sm hover:bg-purple-700 transition-colors"
+                    >
+                      <ClipboardCheck className="w-4 h-4" />
+                      Expert Panel
                     </motion.button>
                   )}
 
@@ -421,7 +452,7 @@ function App() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onAuthSuccess={() => {
-          setCurrentView("wizard");
+          setCurrentView("home"); // Changed to go to home after generic login
         }}
       />
 
@@ -493,23 +524,61 @@ function App() {
                   AI.
                 </motion.p>
 
-                <motion.button
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3, duration: 0.6 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    if (user) {
-                      setCurrentView("wizard");
-                    } else {
-                      setIsAuthModalOpen(true);
-                    }
-                  }}
-                  className="px-8 py-4 bg-blue-600 text-white rounded-lg font-semibold text-base shadow-lg hover:bg-blue-700 transition-all"
-                >
-                  Start Your Assessment
-                </motion.button>
+                <div className="flex flex-col sm:flex-row justify-center gap-4">
+                  {/* LOGIC UPDATE: Show different buttons based on whether user is an expert */}
+                  {isExpertUser ? (
+                    <motion.button
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3, duration: 0.6 }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setCurrentView("expert")}
+                      className="px-8 py-4 bg-purple-600 text-white rounded-lg font-semibold text-base shadow-lg hover:bg-purple-700 transition-all flex items-center justify-center gap-2"
+                    >
+                      <ClipboardCheck className="w-5 h-5" />
+                      Go to Expert Panel
+                    </motion.button>
+                  ) : (
+                    <>
+                      <motion.button
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.6 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          if (user) {
+                            setCurrentView("wizard");
+                          } else {
+                            setIsAuthModalOpen(true);
+                          }
+                        }}
+                        className="px-8 py-4 bg-blue-600 text-white rounded-lg font-semibold text-base shadow-lg hover:bg-blue-700 transition-all"
+                      >
+                        Start Your Assessment
+                      </motion.button>
+
+                      <motion.button
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4, duration: 0.6 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          if (user) {
+                            setCurrentView("booking");
+                          } else {
+                            setIsAuthModalOpen(true);
+                          }
+                        }}
+                        className="px-8 py-4 bg-white text-blue-600 border border-blue-200 rounded-lg font-semibold text-base shadow-lg hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
+                      >
+                        <CalendarCheck className="w-5 h-5" /> Book Expert Visit
+                      </motion.button>
+                    </>
+                  )}
+                </div>
 
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -902,6 +971,22 @@ function App() {
           </div>
         )}
 
+        {/* --- NEW SECTIONS INSERTED BELOW --- */}
+
+        {currentView === "booking" && (
+           <div className="pt-24 pb-16 px-4 min-h-screen bg-gray-50">
+             <AssessmentBooking userId={user?.id} onComplete={() => setCurrentView("home")} />
+           </div>
+        )}
+
+        {currentView === "expert" && (
+           <div className="pt-24 pb-16 px-4 min-h-screen bg-gray-100">
+             <ExpertDashboard />
+           </div>
+        )}
+
+        {/* ----------------------------------- */}
+
         {currentView === "results" && calculationResults && assessmentData && (
           <div className="pt-24 pb-16 px-4 min-h-screen bg-gray-50">
             <ResultsDashboard
@@ -981,4 +1066,3 @@ function App() {
 }
 
 export default App;
-
